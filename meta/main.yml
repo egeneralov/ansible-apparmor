@@ -1,0 +1,14 @@
+galaxy_info:
+  author: Eduard Generalov <eduard@generalov.net>
+  description: Basic installation for apparmor
+  license: MIT
+  min_ansible_version: 1.2
+  # min_ansible_container_version:
+  github_branch: master
+  platforms:
+  - name: Debian
+    versions:
+    - 9
+  galaxy_tags: 
+    - apparmor
+dependencies: []

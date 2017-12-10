@@ -1,0 +1,4 @@
+---
+# defaults file for apparmor
+
+ssh_port: 22

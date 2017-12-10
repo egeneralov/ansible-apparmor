@@ -1,0 +1,55 @@
+---
+
+- name: Install system-wide dependences
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    cache_valid_time: 3200
+    state: present
+  with_items:
+    - auditd
+    - apparmor
+    - apparmor-profiles
+
+- name: "Enable apparmor in grub configuration"
+  lineinfile:
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet security=apparmor"'
+    regexp: "^GRUB_CMDLINE_LINUX_DEFAULT=.*"
+    state: present
+    path: /etc/default/grub
+  register: grub_cmdline
+
+- name: "Re-generate grub configuration"
+  shell: update-grub
+  when: grub_cmdline.changed
+
+- name: "Reboot server for enable apparmor in kernel"
+  shell: sleep 2 && reboot
+  async: 100
+  poll: 0
+  ignore_errors: true
+  when: grub_cmdline.changed
+
+- name: "Wait for server {{ inventory_hostname }} up"
+  wait_for:
+    host: "{{ inventory_hostname }}"
+    port: "{{ ssh_port }}"
+    delay: 10
+    timeout: 60
+  delegate_to: localhost
+  when: grub_cmdline.changed
+
+- name: "Install audit daemon configuration"
+  copy:
+    src: auditd.conf
+    dest: /etc/audit/auditd.conf
+  register: auditd
+
+- name: "Restart services for apply changes"
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+  when: grub_cmdline.changed or auditd.changed
+  with_items:
+    - apparmor
+    - auditd
