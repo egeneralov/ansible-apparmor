@@ -1,19 +1,8 @@
 ---
 
-- name: Install system-wide dependences
-  apt:
-    name: "{{ item }}"
-    update_cache: yes
-    cache_valid_time: 3200
-    state: present
-  with_items:
-    - auditd
-    - apparmor
-    - apparmor-profiles
-
-- name: "Enable apparmor in grub configuration"
+- name: "Disable apparmor in grub configuration"
   lineinfile:
-    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet security=apparmor"'
+    line: 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"'
     regexp: "^GRUB_CMDLINE_LINUX_DEFAULT=.*"
     state: present
     path: /etc/default/grub
@@ -23,7 +12,7 @@
   shell: update-grub
   when: grub_cmdline.changed
 
-- name: "Reboot server for enable apparmor in kernel"
+- name: "Reboot server for disable apparmor in kernel"
   shell: sleep 2 && reboot
   async: 100
   poll: 0
@@ -34,22 +23,36 @@
   wait_for:
     host: "{{ inventory_hostname }}"
     port: "{{ ssh_port }}"
-    delay: 10
+    delay: 5
     timeout: 60
   delegate_to: localhost
   when: grub_cmdline.changed
 
-- name: "Install audit daemon configuration"
-  copy:
-    src: auditd.conf
-    dest: /etc/audit/auditd.conf
-  register: auditd
+- name: "Remove audit daemon configuration"
+  file:
+    path: /etc/audit/auditd.conf
+    state: absent
 
 - name: "Restart services for apply changes"
   systemd:
     name: "{{ item }}"
-    state: restarted
-  when: grub_cmdline.changed or auditd.changed
+    state: stopped
+    enabled: false
   with_items:
     - apparmor
     - auditd
+
+- name: "Uninstall apparmor from system"
+  apt:
+    name: "{{ item }}"
+    update_cache: yes
+    cache_valid_time: 3200
+    state: absent
+    autoremove: yes
+    autoclean: yes
+  with_items:
+    - auditd
+    - apparmor
+    - apparmor-profiles
+
+
